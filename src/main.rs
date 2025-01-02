@@ -12,7 +12,13 @@ fn main() {
         if game.current_turn == Player::X {
             println!("Your turn (Player X)!");
             let player_move = get_user_input();
-            game.make_move(player_move.0, player_move.1).unwrap();
+
+            // Ensure that the move is valid
+            if let Err(e) = game.make_move(player_move.0, player_move.1) {
+                println!("{}", e);
+                continue; // Ask for input again if the move is invalid
+            }
+
             game.print_board();
 
             if let Some(winner) = game.check_winner() {
@@ -24,7 +30,10 @@ fn main() {
         // AI move (Player O)
         if game.current_turn == Player::O {
             println!("AI's turn (Player O)!");
-            game.ai_move().unwrap();
+            if let Err(e) = game.ai_move() {
+                println!("{}", e);
+                break;
+            }
             game.print_board();
 
             if let Some(winner) = game.check_winner() {
