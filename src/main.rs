@@ -7,10 +7,10 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Tic-Tac-Toe", // Title of the window
         eframe::NativeOptions {
-            ..Default::default() // Let eframe decide the window size
+            ..Default::default() // Default window size
         },
         Box::new(|_cc| {
-            // Create and return an instance of the game app
+            // Create and return the game app instance
             Ok(Box::new(GameApp::default()))
         }),
     )
@@ -18,46 +18,50 @@ fn main() -> Result<(), eframe::Error> {
 
 #[derive(Default)]
 struct GameApp {
-    game: Game,      // Holds the game state (board, current_turn)
-    game_over: bool, // Track if the game is over (win/draw)
-    draw: bool,      // Track if the game ended in a draw
-}
-
-impl GameApp {
-    // Initialize the app (we can modify egui settings if needed in the future)
-    fn new() -> Self {
-        Self::default()
-    }
+    game: Game,      // Holds the game state (board, current turn)
+    game_over: bool, // Tracks if the game is over (win or draw)
+    draw: bool,      // Tracks if the game ended in a draw
 }
 
 impl eframe::App for GameApp {
+    // Main update loop for rendering the UI
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Begin rendering UI in the central panel
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // Vertical centering for labels and reset button
-            ui.vertical_centered(|ui| {
-                // Add horizontal space before and after the game grid (will be equally distributed)
-                ui.horizontal(|ui| {
-                    // Dynamically calculate available space to ensure equal padding
-                    let available_space = ui.available_width(); // Get the available width
-                    let padding = (available_space - 360.0) / 2.0; // Calculate padding for the left and right sides
+        // Set custom background color for the window
+        ctx.style_mut(|style| {
+            style.visuals.window_fill = egui::Color32::from_rgb(30, 30, 30); // Dark gray
+        });
 
-                    ui.add_space(padding); // Add space on the left side
-                    ui.centered_and_justified(|ui| {
-                        self.render_board(ui);
-                    });
-                    ui.add_space(padding); // Add space on the right side
+        // Render the central UI panel
+        egui::CentralPanel::default().show(ctx, |ui| {
+            // Center the game grid and related controls
+            ui.vertical_centered(|ui| {
+                // Dynamically calculate padding for horizontal centering
+                ui.horizontal(|ui| {
+                    let available_space = ui.available_width();
+                    let padding = (available_space - 360.0) / 2.0;
+                    ui.add_space(padding); // Left padding
+                    ui.centered_and_justified(|ui| self.render_board(ui)); // Render the game board
+                    ui.add_space(padding); // Right padding
                 });
 
-                ui.add_space(10.0); // Adjust the space between grid and status/controls
+                ui.add_space(20.0); // Add vertical spacing after the grid
 
-                // Check for a winner
+                // Check for winner or draw
                 if let Some(winner) = self.game.check_winner() {
                     self.game_over = true;
-                    ui.label(egui::RichText::new(format!("{:?} wins!", winner)).size(50.0)); // Make the winner text larger
+                    ui.label(
+                        egui::RichText::new(format!("{:?} wins!", winner))
+                            .size(50.0)
+                            .color(egui::Color32::from_rgb(255, 223, 0)), // Yellow
+                    );
 
+                    // Reset button
                     if ui
-                        .button(egui::RichText::new("Reset Game").size(50.0))
+                        .button(
+                            egui::RichText::new("Reset Game")
+                                .size(50.0)
+                                .color(egui::Color32::from_rgb(240, 148, 0)), // Orange
+                        )
                         .clicked()
                     {
                         self.reset_game();
@@ -65,18 +69,30 @@ impl eframe::App for GameApp {
                 } else if self.game.is_full() {
                     self.game_over = true;
                     self.draw = true;
-                    ui.label(egui::RichText::new("It's a draw!").size(50.0)); // Make the draw text larger
+                    ui.label(
+                        egui::RichText::new("It's a draw!")
+                            .size(50.0)
+                            .color(egui::Color32::from_rgb(200, 200, 200)), // Gray
+                    );
+
+                    // Reset button
                     if ui
-                        .button(egui::RichText::new("Reset Game").size(50.0))
+                        .button(
+                            egui::RichText::new("Reset Game")
+                                .size(50.0)
+                                .color(egui::Color32::from_rgb(240, 148, 0)),
+                        )
                         .clicked()
                     {
                         self.reset_game();
                     }
                 } else {
+                    // Display the current player's turn
                     ui.label(
                         egui::RichText::new(format!("{:?}'s turn", self.game.current_turn))
-                            .size(50.0),
-                    ); // Make the turn text larger
+                            .size(50.0)
+                            .color(egui::Color32::from_rgb(160, 160, 255)), // Light blue
+                    );
                 }
             });
         });
@@ -84,50 +100,50 @@ impl eframe::App for GameApp {
 }
 
 impl GameApp {
+    // Render the game board as a 3x3 grid
     fn render_board(&mut self, ui: &mut egui::Ui) {
-        let mut grid: [[Option<Player>; 3]; 3] = self.game.board;
+        let button_size = ui.available_width() / 4.0; // Dynamically adjust button size
 
-        // Center the board with equal padding around it
+        // Vertical layout for rows
         ui.vertical(|ui| {
             for row in 0..3 {
                 ui.horizontal(|ui| {
                     for col in 0..3 {
-                        let cell = &mut grid[row][col];
-
-                        // Set the button size to make the game board larger and more visible
-                        let button_size = egui::vec2(120.0, 120.0); // Larger button size
-
-                        // Add buttons side by side with minimal gap
+                        let cell = &self.game.board[row][col];
                         let button = ui.add_enabled(
-                            !self.game_over, // Disable if the game is over
+                            !self.game_over, // Disable buttons if the game is over
                             egui::Button::new(match cell {
-                                Some(Player::X) => egui::RichText::new("X").size(80.0), // Make "X" bigger
-                                Some(Player::O) => egui::RichText::new("O").size(80.0), // Make "O" bigger
-                                None => egui::RichText::new(" ").size(80.0), // Ensure None returns RichText
+                                Some(Player::X) => egui::RichText::new("X")
+                                    .size(80.0)
+                                    .color(egui::Color32::from_rgb(255, 99, 71)), // Red
+                                Some(Player::O) => egui::RichText::new("O")
+                                    .size(80.0)
+                                    .color(egui::Color32::from_rgb(34, 139, 34)), // Green
+                                None => egui::RichText::new(" ")
+                                    .size(80.0)
+                                    .color(egui::Color32::from_rgb(180, 180, 180)), // Gray
                             })
-                            .min_size(button_size), // Set the button size
+                            .min_size(egui::vec2(button_size, button_size)),
                         );
 
-                        // If the cell is clicked, make a move
                         if button.clicked() && cell.is_none() {
-                            let _ = self.game.make_move(row, col); // Make the move
+                            let _ = self.game.make_move(row, col);
                         }
                     }
                 });
             }
         });
 
-        // AI move if it's O's turn
+        // Perform AI move if it's O's turn
         if self.game.current_turn == Player::O && !self.game_over {
             if let Err(e) = self.game.ai_move() {
-                println!("AI Error: {}", e);
+                ui.label(egui::RichText::new(format!("AI Error: {}", e)).color(egui::Color32::RED));
             }
         }
     }
 
+    // Reset the game state
     fn reset_game(&mut self) {
-        self.game = Game::new();
-        self.game_over = false;
-        self.draw = false;
+        *self = Self::default();
     }
 }
