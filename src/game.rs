@@ -12,29 +12,26 @@ pub struct Game {
     pub current_turn: Player,
 }
 
+impl Default for Game {
+    fn default() -> Self {
+        Game {
+            board: [[None; 3]; 3],   // Initialize an empty board
+            current_turn: Player::X, // Player X starts
+        }
+    }
+}
+
 impl Game {
     // Initialize a new game with an empty board
     pub fn new() -> Self {
-        Game {
-            board: [[None; 3]; 3],
-            current_turn: Player::X,
-        }
+        Self::default()
     }
-
-    // Print the board to the console
-    pub fn print_board(&self) {
-        for row in self.board.iter() {
-            for cell in row.iter() {
-                match cell {
-                    Some(Player::X) => print!(" X "),
-                    Some(Player::O) => print!(" O "),
-                    None => print!(" . "),
-                }
-            }
-            println!();
-        }
+    // Check if the board is full (no empty spaces)
+    pub fn is_full(&self) -> bool {
+        self.board
+            .iter()
+            .all(|row| row.iter().all(|&cell| cell.is_some()))
     }
-
     // Make a move on the board
     pub fn make_move(&mut self, x: usize, y: usize) -> Result<(), String> {
         if x >= 3 || y >= 3 {
@@ -54,21 +51,55 @@ impl Game {
         Ok(())
     }
 
+    // Check for a winner
+    pub fn check_winner(&self) -> Option<Player> {
+        // Check rows, columns, and diagonals for a winner
+        for i in 0..3 {
+            // Check rows
+            if self.board[i][0] == self.board[i][1] && self.board[i][1] == self.board[i][2] {
+                if let Some(player) = self.board[i][0] {
+                    return Some(player); // Winner found
+                }
+            }
+            // Check columns
+            if self.board[0][i] == self.board[1][i] && self.board[1][i] == self.board[2][i] {
+                if let Some(player) = self.board[0][i] {
+                    return Some(player); // Winner found
+                }
+            }
+        }
+
+        // Check diagonals
+        if self.board[0][0] == self.board[1][1] && self.board[1][1] == self.board[2][2] {
+            if let Some(player) = self.board[0][0] {
+                return Some(player); // Winner found
+            }
+        }
+
+        if self.board[0][2] == self.board[1][1] && self.board[1][1] == self.board[2][0] {
+            if let Some(player) = self.board[0][2] {
+                return Some(player); // Winner found
+            }
+        }
+
+        None // No winner
+    }
+
     // AI makes a move (blocking or winning)
     pub fn ai_move(&mut self) -> Result<(), String> {
-        // 1. Try to win
+        // Try to win
         if let Some((x, y)) = self.find_winning_move(Player::O) {
             self.make_move(x, y)?;
             return Ok(());
         }
 
-        // 2. Try to block the opponent
+        // Try to block the opponent
         if let Some((x, y)) = self.find_winning_move(Player::X) {
             self.make_move(x, y)?;
             return Ok(());
         }
 
-        // 3. Random move if no winning or blocking move
+        // Random move if no winning or blocking move
         let empty_cells: Vec<(usize, usize)> = (0..3)
             .flat_map(|x| (0..3).map(move |y| (x, y)))
             .filter(|&(x, y)| self.board[x][y].is_none())
@@ -82,7 +113,7 @@ impl Game {
         self.make_move(selected_cell.0, selected_cell.1)
     }
 
-    // Check for a winning move for the given player
+    // Find a winning move for the given player
     fn find_winning_move(&self, player: Player) -> Option<(usize, usize)> {
         for i in 0..3 {
             for j in 0..3 {
@@ -113,7 +144,6 @@ impl Game {
                     }
                 }
             }
-
             if board[0][i] == board[1][i] && board[1][i] == board[2][i] {
                 if let Some(p) = board[0][i] {
                     if p == player {
@@ -140,10 +170,5 @@ impl Game {
         }
 
         None
-    }
-
-    // Check if a player has won
-    pub fn check_winner(&self) -> Option<Player> {
-        self.check_winner_with_board(&self.board, self.current_turn)
     }
 }
